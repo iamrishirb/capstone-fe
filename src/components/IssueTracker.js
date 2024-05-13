@@ -3,10 +3,14 @@ import issues0 from '../data/issues-0.json';
 import issues1 from '../data/issues-1.json';
 import issues2 from '../data/issues-2.json';
 import issues3 from '../data/issues-3.json';
+import { queryIssuesFromIndexedDB } from '../utils/queryIssuesFromIndexedDB';
 
 const IssueTracker = () => {
     const [isLoading, setIsLoading] = useState(true);
-    const issueTrackerWorker = new Worker('serviceWorker.js');
+    const [issues, setIssues] = useState([]);
+    const [pageNumber, setPageNumber] = useState(1);
+    const [pageSize, setPageSize] = useState(20);
+    const issueTrackerWorker = new Worker('issueTrackerWorker.js');
 
     useEffect(() => {
         parseAndStoreJSONFiles();
@@ -17,18 +21,16 @@ const IssueTracker = () => {
             const request = indexedDB.open('issueTrackerDB', 1);
             request.onupgradeneeded = function (event) {
                 const db = event.target.result;
-                createObjectStore(db, 'issues0');
-                createObjectStore(db, 'issues1');
-                createObjectStore(db, 'issues2');
-                createObjectStore(db, 'issues3');
+                createObjectStores(db);
+                // Store data directly in the onupgradeneeded event handler
+                storeData(db, issues0, 'issues0');
+                storeData(db, issues1, 'issues1');
+                storeData(db, issues2, 'issues2');
+                storeData(db, issues3, 'issues3');
             };
 
             request.onsuccess = function (event) {
                 const db = event.target.result;
-                parseAndStoreJSON(db, 'issues0', issues0);
-                parseAndStoreJSON(db, 'issues1', issues1);
-                parseAndStoreJSON(db, 'issues2', issues2);
-                parseAndStoreJSON(db, 'issues3', issues3);
                 setIsLoading(false);
             };
 
@@ -42,18 +44,8 @@ const IssueTracker = () => {
         }
     };
 
-    const createObjectStore = (db, storeName) => {
-        const objectStore = db.createObjectStore(storeName, { keyPath: 'id' });
-        objectStore.createIndex('title', 'title', { unique: false });
-        objectStore.createIndex('status', 'status', { unique: false });
-        objectStore.createIndex('category', 'category', { unique: false });
-        objectStore.createIndex('priority', 'priority', { unique: false });
-        objectStore.createIndex('team', 'team', { unique: false });
-        objectStore.createIndex('tag', 'tag', { unique: false });
-    };
-
-    const parseAndStoreJSON = (db, storeName, jsonData) => {
-        const transaction = db.transaction(storeName, 'readwrite');
+    const storeData = (db, jsonData, storeName) => {
+        const transaction = db.transaction([storeName], 'readwrite');
         const objectStore = transaction.objectStore(storeName);
         jsonData.forEach(issue => {
             objectStore.add(issue);
@@ -66,33 +58,44 @@ const IssueTracker = () => {
         };
     };
 
-    const queryIssuesFromIndexedDB = (pageNumber, pageSize) => {
-        console.log(`Querying issues from IndexedDB for page ${pageNumber} with pageSize ${pageSize}`);
-        // Implement query logic here
-    };
-
-    const filterIssues = (filters) => {
-        console.log('Filtering issues based on provided filters:', filters);
-        // Implement filter logic here
-    };
-
-    function performTask(data) {
-        issueTrackerWorker.postMessage({ action: 'performTask', data });
-    }
-
-    issueTrackerWorker.onmessage = (event) => {
-        const { action, result } = event.data;
-        switch (action) {
-            case 'taskCompleted':
-                console.log(result)
-                break;
-            default:
-                console.error('Unsupported action:', action);
+    const createObjectStores = (db) => {
+        try {
+            for (let i = 0; i < 4; i++) {
+                const storeName = `issues${i}`;
+                const objectStore = db.createObjectStore(storeName, { keyPath: 'id' });
+                objectStore.createIndex('title', 'title', { unique: false });
+                objectStore.createIndex('status', 'status', { unique: false });
+                // Add more indexes as needed
+            }
+        } catch (error) {
+            console.error('Error creating object stores:', error);
         }
     };
 
-    // Example usage
-    performTask(someData);
+    useEffect(() => {
+        const fetchDataFromIndexedDB = async () => {
+            try {
+                const issues = await queryIssuesFromIndexedDB(pageNumber, pageSize);
+                console.log('Fetched issues:', issues);
+                setIssues(issues);
+                setIsLoading(false);
+            } catch (error) {
+                console.error('Error fetching data from IndexedDB:', error);
+                setIsLoading(false);
+            }
+        };
+
+        fetchDataFromIndexedDB();
+    }, [pageNumber, pageSize]);
+
+    useEffect(() => {
+        const data = { pageNumber, pageSize };
+        performTask(data);
+    }, [pageNumber, pageSize]);
+
+    const performTask = (data) => {
+        issueTrackerWorker.postMessage({ action: 'performTask', data });
+    };
 
     return (
         <div>

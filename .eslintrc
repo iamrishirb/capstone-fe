@@ -1,0 +1,16 @@
+{
+    "plugins": [
+        "compat"
+    ],
+    "env": {
+        "browser": true
+    },
+    "rules": {
+        "compat/compat": "error",
+        "no-restricted-globals": [
+            "error",
+            "isFinite",
+            "isNaN"
+        ]
+    }
+}
