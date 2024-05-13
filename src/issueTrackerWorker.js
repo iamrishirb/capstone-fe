@@ -57,7 +57,7 @@ async function queryIssuesFromIndexedDB(dbName, objectStoreName, pageSize) {
                     results.push(cursor.value);
                     cursor.continue();
                 } else {
-                    resolve(results.slice(0, pageSize)); // Resolve with the first `pageSize` results
+                    resolve(results.slice(0, pageSize));
                 }
             };
 
