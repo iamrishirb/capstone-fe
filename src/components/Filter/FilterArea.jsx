@@ -22,7 +22,7 @@ const FilterArea = ({
                 />
             ))}
             <div className="selected-filters">
-                {selectedFilters.map((filter, index) => (
+                {selectedFilters?.map((filter, index) => (
                     <FilterChip key={index} filter={filter} onRemove={onRemoveFilter} />
                 ))}
             </div>

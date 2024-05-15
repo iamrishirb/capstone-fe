@@ -4,13 +4,31 @@ import issues1 from '../data/issues-1.json';
 import issues2 from '../data/issues-2.json';
 import issues3 from '../data/issues-3.json';
 import { queryIssuesFromIndexedDB } from '../utils/queryIssuesFromIndexedDB';
+import FilterArea from './Filter/FilterArea';
+import IssueLane from './Issue/IssueLane';
 
 const IssueTracker = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [issues, setIssues] = useState([]);
     const [pageNumber, setPageNumber] = useState(1);
     const [pageSize, setPageSize] = useState(20);
-    const issueTrackerWorker = new Worker('issueTrackerWorker.js');
+
+    const filters = [
+        { key: 'category', label: 'Category', options: ['Bug', 'Feature', 'Enhancement', 'Question'] },
+        { key: 'priority', label: 'Priority', options: ['Low', 'Medium', 'High', 'Critical'] },
+        { key: 'team', label: 'Team', options: ['Team A', 'Team B', 'Team C'] },
+        { key: 'tag', label: 'Tag', options: ['Tag 1', 'Tag 2', 'Tag 3'] },
+    ];
+
+    const selectedFilters = {};
+
+    const onSelectFilter = (key, selected) => {
+        selectedFilters[key] = selected;
+    };
+
+    const onRemoveFilter = (key) => {
+        delete selectedFilters[key];
+    };
 
     useEffect(() => {
         parseAndStoreJSONFiles();
@@ -25,12 +43,12 @@ const IssueTracker = () => {
                 createObjectStores(db);
             };
 
-            request.onsuccess = function (event) {
+            request.onsuccess = async function (event) {
                 const db = event.target.result;
-                storeData(db, issues0, 'issues0');
-                storeData(db, issues1, 'issues1');
-                storeData(db, issues2, 'issues2');
-                storeData(db, issues3, 'issues3');
+                await seedDataIfNeeded(db, issues0, 'issues0');
+                await seedDataIfNeeded(db, issues1, 'issues1');
+                await seedDataIfNeeded(db, issues2, 'issues2');
+                await seedDataIfNeeded(db, issues3, 'issues3');
                 setIsLoading(false);
             };
 
@@ -42,6 +60,34 @@ const IssueTracker = () => {
             console.error('Error parsing JSON files or storing data in IndexedDB:', error);
             setIsLoading(false);
         }
+    };
+
+    const seedDataIfNeeded = async (db, jsonData, storeName) => {
+        return new Promise((resolve, reject) => {
+            const transaction = db.transaction([storeName], 'readonly');
+            const objectStore = transaction.objectStore(storeName);
+            const countRequest = objectStore.count();
+
+            countRequest.onsuccess = async () => {
+                if (countRequest.result === 0) {
+                    console.log(`Seeding data in ${storeName}`);
+                    try {
+                        await storeData(db, jsonData, storeName);
+                        resolve();
+                    } catch (error) {
+                        reject(error);
+                    }
+                } else {
+                    console.log(`Data already exists in ${storeName}, skipping seeding.`);
+                    resolve();
+                }
+            };
+
+            countRequest.onerror = (event) => {
+                console.error(`Error counting data in IndexedDB (${storeName}):`, event.target.error);
+                reject(event.target.error);
+            };
+        });
     };
 
     const storeData = (db, jsonData, storeName) => {
@@ -63,7 +109,6 @@ const IssueTracker = () => {
                 const addRequest = objectStore.add(issue);
                 addRequest.onerror = (event) => {
                     console.error(`Error adding data to IndexedDB (${storeName}):`, event.target.error);
-                    reject(event.target.error);
                 };
             });
         });
@@ -73,10 +118,11 @@ const IssueTracker = () => {
         try {
             for (let i = 0; i < 4; i++) {
                 const storeName = `issues${i}`;
-                const objectStore = db.createObjectStore(storeName, { keyPath: 'id' });
-                objectStore.createIndex('title', 'title', { unique: false });
-                objectStore.createIndex('status', 'status', { unique: false });
-                // Add more indexes as needed
+                if (!db.objectStoreNames.contains(storeName)) {
+                    const objectStore = db.createObjectStore(storeName, { keyPath: 'id' });
+                    objectStore.createIndex('title', 'title', { unique: false });
+                    objectStore.createIndex('status', 'status', { unique: false });
+                }
             }
         } catch (error) {
             console.error('Error creating object stores:', error);
@@ -99,21 +145,22 @@ const IssueTracker = () => {
         fetchDataFromIndexedDB();
     }, [pageNumber, pageSize]);
 
-    useEffect(() => {
-        const data = { pageNumber, pageSize };
-        performTask(data);
-    }, [pageNumber, pageSize]);
-
-    const performTask = (data) => {
-        issueTrackerWorker.postMessage({ action: 'performTask', data });
-    };
-
     return (
         <div>
             {isLoading ? (
                 <p>Loading...</p>
             ) : (
-                <p>Data stored in IndexedDB successfully</p>
+                <>
+                    <FilterArea
+                        filters={filters}
+                        selectedFilters={selectedFilters}
+                        onSelectFilter={onSelectFilter}
+                        onRemoveFilter={onRemoveFilter}
+                    />
+                    <IssueLane title={"To Do"} issues={issues.filter(issue => issue.status === 'todo')} />
+                    <IssueLane title={"Doing"} issues={issues.filter(issue => issue.status === 'doing')} />
+                    <IssueLane title={"Done"} issues={issues.filter(issue => issue.status === 'done')} />
+                </>
             )}
         </div>
     );
