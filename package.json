@@ -37,6 +37,8 @@
     ]
   },
   "devDependencies": {
+    "@babel/core": "^7.24.5",
+    "@babel/preset-react": "^7.24.1",
     "eslint-plugin-compat": "^4.2.0"
   }
 }

@@ -19,18 +19,18 @@ const IssueTracker = () => {
     const parseAndStoreJSONFiles = async () => {
         try {
             const request = indexedDB.open('issueTrackerDB', 1);
+
             request.onupgradeneeded = function (event) {
                 const db = event.target.result;
                 createObjectStores(db);
-                // Store data directly in the onupgradeneeded event handler
-                storeData(db, issues0, 'issues0');
-                storeData(db, issues1, 'issues1');
-                storeData(db, issues2, 'issues2');
-                storeData(db, issues3, 'issues3');
             };
 
             request.onsuccess = function (event) {
                 const db = event.target.result;
+                storeData(db, issues0, 'issues0');
+                storeData(db, issues1, 'issues1');
+                storeData(db, issues2, 'issues2');
+                storeData(db, issues3, 'issues3');
                 setIsLoading(false);
             };
 
@@ -45,17 +45,28 @@ const IssueTracker = () => {
     };
 
     const storeData = (db, jsonData, storeName) => {
-        const transaction = db.transaction([storeName], 'readwrite');
-        const objectStore = transaction.objectStore(storeName);
-        jsonData.forEach(issue => {
-            objectStore.add(issue);
+        return new Promise((resolve, reject) => {
+            const transaction = db.transaction([storeName], 'readwrite');
+            const objectStore = transaction.objectStore(storeName);
+
+            transaction.oncomplete = () => {
+                console.log(`Data stored in IndexedDB (${storeName}) successfully`);
+                resolve();
+            };
+
+            transaction.onerror = (event) => {
+                console.error(`Error storing data in IndexedDB (${storeName}):`, event.target.error);
+                reject(event.target.error);
+            };
+
+            jsonData.forEach(issue => {
+                const addRequest = objectStore.add(issue);
+                addRequest.onerror = (event) => {
+                    console.error(`Error adding data to IndexedDB (${storeName}):`, event.target.error);
+                    reject(event.target.error);
+                };
+            });
         });
-        transaction.oncomplete = function () {
-            console.log(`Data stored in IndexedDB (${storeName}) successfully`);
-        };
-        transaction.onerror = function (event) {
-            console.error(`Error storing data in IndexedDB (${storeName}):`, event.target.error);
-        };
     };
 
     const createObjectStores = (db) => {
