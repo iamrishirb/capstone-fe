@@ -1,8 +1,9 @@
 import React from 'react';
+import styles from './issues.module.css';
 
 const IssueCard = ({ issue }) => {
     return (
-        <div className="issue-card">
+        <div className={styles.issueCard}>
             <h3>{issue.title}</h3>
             <p>
                 <strong>Status:</strong> {issue.status}

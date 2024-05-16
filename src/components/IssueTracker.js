@@ -56,6 +56,7 @@ const IssueTracker = () => {
                 await seedDataIfNeeded(db, issues2, 'issues2');
                 await seedDataIfNeeded(db, issues3, 'issues3');
                 setIsLoading(false);
+                await logFirst10Records(db); // Fetch and log the first 10 records from each store
             };
 
             request.onerror = function (event) {
@@ -140,11 +141,35 @@ const IssueTracker = () => {
         }
     };
 
+    const logFirst10Records = async (db) => {
+        for (let i = 0; i < 4; i++) {
+            const storeName = `issues${i}`;
+            const transaction = db.transaction([storeName], 'readonly');
+            const objectStore = transaction.objectStore(storeName);
+            const request = objectStore.openCursor();
+            const records = [];
+
+            request.onsuccess = (event) => {
+                const cursor = event.target.result;
+                if (cursor && records.length < 10) {
+                    records.push(cursor.value);
+                    cursor.continue();
+                } else {
+                    console.log(`First 10 records from ${storeName}:`, records);
+                }
+            };
+
+            request.onerror = (event) => {
+                console.error(`Error fetching records from ${storeName}:`, event.target.error);
+            };
+        }
+    };
+
     useEffect(() => {
         const fetchDataFromIndexedDB = async () => {
             try {
                 const issues = await queryIssuesFromIndexedDB(pageNumber, pageSize);
-                console.log('Fetched issues:', issues);
+                // console.log('Fetched issues:', issues);
                 setIssues(issues);
                 setIsLoading(false);
             } catch (error) {
