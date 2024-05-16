@@ -12,6 +12,7 @@ const IssueTracker = () => {
     const [issues, setIssues] = useState([]);
     const [pageNumber, setPageNumber] = useState(1);
     const [pageSize, setPageSize] = useState(20);
+    const [selectedFilters, setSelectedFilters] = useState({});
 
     const filters = [
         { key: 'category', label: 'Category', options: ['Bug', 'Feature', 'Enhancement', 'Question'] },
@@ -20,14 +21,19 @@ const IssueTracker = () => {
         { key: 'tag', label: 'Tag', options: ['Tag 1', 'Tag 2', 'Tag 3'] },
     ];
 
-    const selectedFilters = {};
-
     const onSelectFilter = (key, selected) => {
-        selectedFilters[key] = selected;
+        setSelectedFilters((prevFilters) => ({
+            ...prevFilters,
+            [key]: selected,
+        }));
     };
 
     const onRemoveFilter = (key) => {
-        delete selectedFilters[key];
+        setSelectedFilters((prevFilters) => {
+            const updatedFilters = { ...prevFilters };
+            delete updatedFilters[key];
+            return updatedFilters;
+        });
     };
 
     useEffect(() => {
@@ -109,6 +115,7 @@ const IssueTracker = () => {
                 const addRequest = objectStore.add(issue);
                 addRequest.onerror = (event) => {
                     console.error(`Error adding data to IndexedDB (${storeName}):`, event.target.error);
+                    reject(event.target.error);
                 };
             });
         });
@@ -122,6 +129,10 @@ const IssueTracker = () => {
                     const objectStore = db.createObjectStore(storeName, { keyPath: 'id' });
                     objectStore.createIndex('title', 'title', { unique: false });
                     objectStore.createIndex('status', 'status', { unique: false });
+                    objectStore.createIndex('category', 'category', { unique: false });
+                    objectStore.createIndex('priority', 'priority', { unique: false });
+                    objectStore.createIndex('team', 'team', { unique: false });
+                    objectStore.createIndex('tag', 'tag', { unique: false, multiEntry: true });
                 }
             }
         } catch (error) {
@@ -157,9 +168,9 @@ const IssueTracker = () => {
                         onSelectFilter={onSelectFilter}
                         onRemoveFilter={onRemoveFilter}
                     />
-                    <IssueLane title={"To Do"} issues={issues.filter(issue => issue.status === 'todo')} />
-                    <IssueLane title={"Doing"} issues={issues.filter(issue => issue.status === 'doing')} />
-                    <IssueLane title={"Done"} issues={issues.filter(issue => issue.status === 'done')} />
+                    <IssueLane title={"To Do"} issues={issues.filter(issue => issue.status === 'To Do')} />
+                    <IssueLane title={"Doing"} issues={issues.filter(issue => issue.status === 'In Progress')} />
+                    <IssueLane title={"Done"} issues={issues.filter(issue => issue.status === 'Completed')} />
                 </>
             )}
         </div>
