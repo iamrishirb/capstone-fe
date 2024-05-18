@@ -35,192 +35,58 @@ const IssueTracker = () => {
     }, []);
 
     const parseAndStoreJSONFiles = async () => {
-        try {
-            const request = indexedDB.open('issueTrackerDB', 1);
+        const workers = [];
+        const dbName = 'issueTrackerDB';
 
-            request.onupgradeneeded = function (event) {
-                const db = event.target.result;
-                createObjectStores(db);
-            };
-
-            request.onsuccess = async function (event) {
-                const db = event.target.result;
-                await seedDataIfNeeded(db, issues0, 'issues0');
-                await seedDataIfNeeded(db, issues1, 'issues1');
-                await seedDataIfNeeded(db, issues2, 'issues2');
-                await seedDataIfNeeded(db, issues3, 'issues3');
-                await collectAndStoreUniqueValues(db);
-                setFilters(await fetchUniqueValues(db));
-                setIsLoading(false);
-            };
-
-            request.onerror = function (event) {
-                console.error('Error opening IndexedDB:', event.target.error);
-                setIsLoading(false);
-            };
-        } catch (error) {
-            console.error('Error parsing JSON files or storing data in IndexedDB:', error);
-            setIsLoading(false);
-        }
-    };
-
-    const seedDataIfNeeded = async (db, jsonData, storeName) => {
-        return new Promise((resolve, reject) => {
-            const transaction = db.transaction([storeName], 'readonly');
-            const objectStore = transaction.objectStore(storeName);
-            const countRequest = objectStore.count();
-
-            countRequest.onsuccess = async () => {
-                if (countRequest.result === 0) {
-                    console.log(`Seeding data in ${storeName}`);
-                    try {
-                        await storeData(db, jsonData, storeName);
-                        resolve();
-                    } catch (error) {
-                        console.error(`Error seeding data in ${storeName}:`, error);
-                        reject(error);
-                    }
-                } else {
-                    console.log(`Data already exists in ${storeName}, skipping seeding.`);
-                    resolve();
-                }
-            };
-
-            countRequest.onerror = (event) => {
-                console.error(`Error counting data in IndexedDB (${storeName}):`, event.target.error);
-                reject(event.target.error);
-            };
-        });
-    };
-
-    const storeData = (db, jsonData, storeName) => {
-        return new Promise((resolve, reject) => {
-            const transaction = db.transaction([storeName], 'readwrite');
-            const objectStore = transaction.objectStore(storeName);
-
-            transaction.oncomplete = () => {
-                console.log(`Data stored in IndexedDB (${storeName}) successfully`);
-                resolve();
-            };
-
-            transaction.onerror = (event) => {
-                console.error(`Error storing data in IndexedDB (${storeName}):`, event.target.error);
-                reject(event.target.error);
-            };
-
-            jsonData.forEach((issue, index) => {
-                const addRequest = objectStore.add(issue);
-                addRequest.onsuccess = () => {
-                    console.log(`Added issue ${index + 1}/${jsonData.length} to ${storeName}`);
-                };
-                addRequest.onerror = (event) => {
-                    console.error(`Error adding data to IndexedDB (${storeName}):`, event.target.error);
-                    reject(event.target.error);
-                };
-            });
-        });
-    };
-
-    const createObjectStores = (db) => {
-        try {
-            for (let i = 0; i < 4; i++) {
-                const storeName = `issues${i}`;
-                if (!db.objectStoreNames.contains(storeName)) {
-                    const objectStore = db.createObjectStore(storeName, { keyPath: 'id' });
-                    objectStore.createIndex('title', 'title', { unique: false });
-                    objectStore.createIndex('status', 'status', { unique: false });
-                    objectStore.createIndex('category', 'category', { unique: false });
-                    objectStore.createIndex('priority', 'priority', { unique: false });
-                    objectStore.createIndex('team', 'team', { unique: false });
-                    objectStore.createIndex('tag', 'tag', { unique: false, multiEntry: true });
-                }
-            }
-            if (!db.objectStoreNames.contains('uniqueValuesStore')) {
-                db.createObjectStore('uniqueValuesStore', { keyPath: 'key' });
-            }
-        } catch (error) {
-            console.error('Error creating object stores:', error);
-        }
-    };
-
-    const collectAndStoreUniqueValues = async (db) => {
-        const uniqueValues = {
-            category: new Set(),
-            team: new Set(),
-            tag: new Set(),
-            status: new Set(),
-        };
-
-        const promises = [];
         for (let i = 0; i < 4; i++) {
-            const storeName = `issues${i}`;
-            promises.push(new Promise((resolve, reject) => {
-                const transaction = db.transaction([storeName], 'readonly');
-                const objectStore = transaction.objectStore(storeName);
-                const request = objectStore.openCursor();
+            const worker = new Worker(new URL('../workers/indexedDBWorker.js', import.meta.url));
+            worker.onmessage = handleWorkerMessage;
+            workers.push(worker);
 
-                request.onsuccess = (event) => {
-                    const cursor = event.target.result;
-                    if (cursor) {
-                        const { category, team, tag, status } = cursor.value;
-                        uniqueValues.category.add(category);
-                        uniqueValues.team.add(team);
-                        uniqueValues.status.add(status);
-                        if (Array.isArray(tag)) {
-                            tag.forEach(t => uniqueValues.tag.add(t));
-                        } else {
-                            uniqueValues.tag.add(tag);
-                        }
-                        cursor.continue();
-                    } else {
-                        resolve();
-                    }
-                };
-
-                request.onerror = (event) => {
-                    console.error(`Error collecting unique values from ${storeName}:`, event.target.error);
-                    reject(event.target.error);
-                };
-            }));
+            const jsonData = [issues0, issues1, issues2, issues3][i];
+            worker.postMessage({ type: 'seedData', dbName, storeName: `issues${i}`, jsonData });
         }
 
-        await Promise.all(promises);
+        function handleWorkerMessage(event) {
+            const { status, storeName, issue, error } = event.data;
+            if (status === 'progress') {
+                setIssues(prevIssues => [...prevIssues, issue]);
+            } else if (status === 'completed') {
+                console.log(`Data seeding completed for ${storeName}`);
+                checkAllWorkersCompleted();
+            } else if (status === 'error') {
+                console.error(`Error in worker for ${storeName}:`, error);
+            }
+        }
 
-        const uniqueValuesData = Object.keys(uniqueValues).map(key => ({
-            key,
-            values: Array.from(uniqueValues[key]),
-        }));
-
-        return new Promise((resolve, reject) => {
-            const transaction = db.transaction(['uniqueValuesStore'], 'readwrite');
-            const objectStore = transaction.objectStore('uniqueValuesStore');
-
-            transaction.oncomplete = () => {
-                console.log('Unique values stored successfully');
-                resolve();
-            };
-
-            transaction.onerror = (event) => {
-                console.error('Error storing unique values:', event.target.error);
-                reject(event.target.error);
-            };
-
-            uniqueValuesData.forEach(item => {
-                const addRequest = objectStore.put(item);
-                addRequest.onerror = (event) => {
-                    console.error('Error adding unique value to store:', event.target.error);
-                    reject(event.target.error);
-                };
-            });
-        });
+        let completedWorkers = 0;
+        function checkAllWorkersCompleted() {
+            completedWorkers++;
+            if (completedWorkers === workers.length) {
+                console.log('All workers completed');
+                collectAndStoreUniqueValues();
+                setIsLoading(false);
+            }
+        }
     };
 
-    const fetchUniqueValues = (db) => {
-        return new Promise((resolve, reject) => {
-            const transaction = db.transaction(['uniqueValuesStore'], 'readonly');
-            const objectStore = transaction.objectStore('uniqueValuesStore');
-            const request = objectStore.getAll();
+    const collectAndStoreUniqueValues = async () => {
+        const dbRequest = indexedDB.open('issueTrackerDB', 1);
+        dbRequest.onsuccess = async function (event) {
+            const db = event.target.result;
+            const uniqueValues = await fetchUniqueValues(db);
+            setFilters(uniqueValues);
+        };
+        dbRequest.onerror = function (event) {
+            console.error('Error opening IndexedDB for unique values:', event.target.error);
+        };
+    };
 
+    const fetchUniqueValues = async (db) => {
+        const uniqueValuesStore = db.transaction('uniqueValuesStore', 'readonly').objectStore('uniqueValuesStore');
+        const request = uniqueValuesStore.getAll();
+
+        return new Promise((resolve, reject) => {
             request.onsuccess = (event) => {
                 const result = event.target.result;
                 const filters = result.map(item => ({
@@ -230,9 +96,7 @@ const IssueTracker = () => {
                 }));
                 resolve(filters);
             };
-
             request.onerror = (event) => {
-                console.error('Error fetching unique values:', event.target.error);
                 reject(event.target.error);
             };
         });

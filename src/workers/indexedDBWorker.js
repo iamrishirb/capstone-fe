@@ -76,6 +76,9 @@ const storeData = (db, jsonData, storeName) => {
 
         jsonData.forEach((issue) => {
             const addRequest = objectStore.add(issue);
+            addRequest.onsuccess = () => {
+                self.postMessage({ status: 'progress', storeName, issue });
+            };
             addRequest.onerror = (event) => {
                 reject(event.target.error);
             };
