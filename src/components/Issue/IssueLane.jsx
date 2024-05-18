@@ -1,7 +1,7 @@
 import React from 'react';
-import IssueList from './IssueList';
 import IssueSearch from './IssueSearch';
 import styles from './issues.module.css';
+import IssueList from './IssueList'
 
 const IssueLane = ({ title, issues }) => {
     return (

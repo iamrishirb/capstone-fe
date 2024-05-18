@@ -1,8 +1,6 @@
 /* IssueCard.module.css */
 .issue-lane {
     width: 24%;
-    background-color: #f4f4f4;
-    border-radius: 5px;
     padding: 10px;
 }
 
@@ -23,12 +21,15 @@
     display: flex;
     flex-direction: column;
     gap: 10px;
+    height: 100vh;
+    padding-bottom: 30px;
+    overflow-y: scroll;
 }
 
 .issueCard {
-    background-color: #f9f9f9;
+    background: #232323;
     border: 1px solid #ddd;
-    border-radius: 8px;
+    border-radius: 6px;
     padding: 16px;
     margin: 16px 0;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);

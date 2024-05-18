@@ -14,6 +14,7 @@ const IssueTracker = () => {
     const [pageNumber, setPageNumber] = useState(1);
     const [pageSize, setPageSize] = useState(20);
     const [selectedFilters, setSelectedFilters] = useState({});
+    const [workersCompleted, setWorkersCompleted] = useState(0);
 
     const onSelectFilter = (key, selected) => {
         setSelectedFilters((prevFilters) => ({
@@ -46,29 +47,27 @@ const IssueTracker = () => {
             const jsonData = [issues0, issues1, issues2, issues3][i];
             worker.postMessage({ type: 'seedData', dbName, storeName: `issues${i}`, jsonData });
         }
+    };
 
-        function handleWorkerMessage(event) {
-            const { status, storeName, issue, error } = event.data;
-            if (status === 'progress') {
-                setIssues(prevIssues => [...prevIssues, issue]);
-            } else if (status === 'completed') {
-                console.log(`Data seeding completed for ${storeName}`);
-                checkAllWorkersCompleted();
-            } else if (status === 'error') {
-                console.error(`Error in worker for ${storeName}:`, error);
-            }
-        }
-
-        let completedWorkers = 0;
-        function checkAllWorkersCompleted() {
-            completedWorkers++;
-            if (completedWorkers === workers.length) {
-                console.log('All workers completed');
-                collectAndStoreUniqueValues();
-                setIsLoading(false);
-            }
+    const handleWorkerMessage = (event) => {
+        const { status, storeName, issue, error } = event.data;
+        if (status === 'progress') {
+            setIssues((prevIssues) => [...prevIssues, issue]);
+        } else if (status === 'completed') {
+            console.log(`Data seeding completed for ${storeName}`);
+            setWorkersCompleted((prevCount) => prevCount + 1);
+        } else if (status === 'error') {
+            console.error(`Error in worker for ${storeName}:`, error);
         }
     };
+
+    useEffect(() => {
+        if (workersCompleted === 4) {
+            collectAndStoreUniqueValues();
+            setIsLoading(false);
+            fetchAndLogFirstTenIssues();
+        }
+    }, [workersCompleted]);
 
     const collectAndStoreUniqueValues = async () => {
         const dbRequest = indexedDB.open('issueTrackerDB', 1);
@@ -89,7 +88,7 @@ const IssueTracker = () => {
         return new Promise((resolve, reject) => {
             request.onsuccess = (event) => {
                 const result = event.target.result;
-                const filters = result.map(item => ({
+                const filters = result.map((item) => ({
                     key: item.key,
                     label: item.key.charAt(0).toUpperCase() + item.key.slice(1),
                     options: item.values,
@@ -100,6 +99,15 @@ const IssueTracker = () => {
                 reject(event.target.error);
             };
         });
+    };
+
+    const fetchAndLogFirstTenIssues = () => {
+        const fetchWorker = new Worker(new URL('../workers/fetchIssuesWorker.js', import.meta.url));
+        fetchWorker.onmessage = (event) => {
+            const { issues } = event.data;
+            console.log('First 10 issues from each store:', issues);
+        };
+        fetchWorker.postMessage({ type: 'fetchFirstTen', dbName: 'issueTrackerDB', storeNames: ['issues0', 'issues1', 'issues2', 'issues3'] });
     };
 
     useEffect(() => {
@@ -130,10 +138,10 @@ const IssueTracker = () => {
                         onRemoveFilter={onRemoveFilter}
                     />
                     <div className="lane-area">
-                        <IssueLane title={"To Do"} issues={issues.filter(issue => issue.status === 'To Do')} />
-                        <IssueLane title={"In Progress"} issues={issues.filter(issue => issue.status === 'In Progress')} />
-                        <IssueLane title={"Review"} issues={issues.filter(issue => issue.status === 'Review')} />
-                        <IssueLane title={"Completed"} issues={issues.filter(issue => issue.status === 'Completed')} />
+                        <IssueLane title={"To Do"} issues={issues.filter((issue) => issue.status === 'To Do')} />
+                        <IssueLane title={"In Progress"} issues={issues.filter((issue) => issue.status === 'In Progress')} />
+                        <IssueLane title={"Review"} issues={issues.filter((issue) => issue.status === 'Review')} />
+                        <IssueLane title={"Completed"} issues={issues.filter((issue) => issue.status === 'Completed')} />
                     </div>
                 </>
             )}
