@@ -35,18 +35,51 @@ const IssueTracker = () => {
         parseAndStoreJSONFiles();
     }, []);
 
+    const filterJSONData = (data) => {
+        return data.slice(0, 200);
+    };
+
     const parseAndStoreJSONFiles = async () => {
         const workers = [];
         const dbName = 'issueTrackerDB';
 
-        for (let i = 0; i < 4; i++) {
-            const worker = new Worker(new URL('../workers/indexedDBWorker.js', import.meta.url));
-            worker.onmessage = handleWorkerMessage;
-            workers.push(worker);
+        const jsonDataArray = [
+            filterJSONData(issues0),
+            filterJSONData(issues1),
+            filterJSONData(issues2),
+            filterJSONData(issues3),
+        ];
 
-            const jsonData = [issues0, issues1, issues2, issues3][i];
-            worker.postMessage({ type: 'seedData', dbName, storeName: `issues${i}`, jsonData });
-        }
+        const dbRequest = indexedDB.open(dbName, 1);
+
+        dbRequest.onupgradeneeded = function (event) {
+            const db = event.target.result;
+            for (let i = 0; i < jsonDataArray.length; i++) {
+                const storeName = `issues${i}`;
+                if (!db.objectStoreNames.contains(storeName)) {
+                    db.createObjectStore(storeName, { keyPath: 'id' });
+                }
+            }
+            if (!db.objectStoreNames.contains('uniqueValuesStore')) {
+                db.createObjectStore('uniqueValuesStore', { keyPath: 'key' });
+            }
+        };
+
+        dbRequest.onsuccess = function (event) {
+            const db = event.target.result;
+            for (let i = 0; i < jsonDataArray.length; i++) {
+                const worker = new Worker(new URL('../workers/indexedDBWorker.js', import.meta.url));
+                worker.onmessage = handleWorkerMessage;
+                workers.push(worker);
+
+                const jsonData = jsonDataArray[i];
+                worker.postMessage({ type: 'seedData', dbName, storeName: `issues${i}`, jsonData });
+            }
+        };
+
+        dbRequest.onerror = function (event) {
+            console.error('Error opening IndexedDB:', event.target.error);
+        };
     };
 
     const handleWorkerMessage = (event) => {
@@ -126,7 +159,7 @@ const IssueTracker = () => {
     }, [pageNumber, pageSize, selectedFilters]);
 
     return (
-        <div>
+        <div className='issue-tracker'>
             {isLoading ? (
                 <p>Loading...</p>
             ) : (
