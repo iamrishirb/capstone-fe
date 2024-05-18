@@ -1,4 +1,30 @@
 /* IssueCard.module.css */
+.issue-lane {
+    width: 24%;
+    background-color: #f4f4f4;
+    border-radius: 5px;
+    padding: 10px;
+}
+
+.lane-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.lane-body {
+    min-height: 200px;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.issue-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
 .issueCard {
     background-color: #f9f9f9;
     border: 1px solid #ddd;

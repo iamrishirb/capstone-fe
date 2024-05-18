@@ -1,6 +1,7 @@
 // src/components/Filter/FilterChip.js
 
 import React from 'react';
+import styles from './filters.module.css';
 
 const FilterChip = ({ filter, onRemove }) => {
     const handleRemove = () => {
@@ -8,9 +9,9 @@ const FilterChip = ({ filter, onRemove }) => {
     };
 
     return (
-        <div className="chip">
+        <div className={styles['filter-chip']}>
             <span>{filter}</span>
-            <button className="remove-btn" onClick={handleRemove}>
+            <button className={styles["remove-btn"]} onClick={handleRemove}>
                 &times;
             </button>
         </div>

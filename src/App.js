@@ -1,5 +1,6 @@
 import React from 'react';
 import IssueTracker from './components/IssueTracker';
+import './App.css';
 
 function App() {
   return (

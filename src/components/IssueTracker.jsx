@@ -10,16 +10,10 @@ import IssueLane from './Issue/IssueLane';
 const IssueTracker = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [issues, setIssues] = useState([]);
+    const [filters, setFilters] = useState([]);
     const [pageNumber, setPageNumber] = useState(1);
     const [pageSize, setPageSize] = useState(20);
     const [selectedFilters, setSelectedFilters] = useState({});
-
-    const filters = [
-        { key: 'category', label: 'Category', options: ['Bug', 'Feature', 'Enhancement', 'Question'] },
-        { key: 'priority', label: 'Priority', options: ['Low', 'Medium', 'High', 'Critical'] },
-        { key: 'team', label: 'Team', options: ['Team A', 'Team B', 'Team C'] },
-        { key: 'tag', label: 'Tag', options: ['Tag 1', 'Tag 2', 'Tag 3'] },
-    ];
 
     const onSelectFilter = (key, selected) => {
         setSelectedFilters((prevFilters) => ({
@@ -55,8 +49,9 @@ const IssueTracker = () => {
                 await seedDataIfNeeded(db, issues1, 'issues1');
                 await seedDataIfNeeded(db, issues2, 'issues2');
                 await seedDataIfNeeded(db, issues3, 'issues3');
+                await collectAndStoreUniqueValues(db);
+                setFilters(await fetchUniqueValues(db));
                 setIsLoading(false);
-                await logFirst10Records(db); // Fetch and log the first 10 records from each store
             };
 
             request.onerror = function (event) {
@@ -82,6 +77,7 @@ const IssueTracker = () => {
                         await storeData(db, jsonData, storeName);
                         resolve();
                     } catch (error) {
+                        console.error(`Error seeding data in ${storeName}:`, error);
                         reject(error);
                     }
                 } else {
@@ -112,8 +108,11 @@ const IssueTracker = () => {
                 reject(event.target.error);
             };
 
-            jsonData.forEach(issue => {
+            jsonData.forEach((issue, index) => {
                 const addRequest = objectStore.add(issue);
+                addRequest.onsuccess = () => {
+                    console.log(`Added issue ${index + 1}/${jsonData.length} to ${storeName}`);
+                };
                 addRequest.onerror = (event) => {
                     console.error(`Error adding data to IndexedDB (${storeName}):`, event.target.error);
                     reject(event.target.error);
@@ -136,40 +135,113 @@ const IssueTracker = () => {
                     objectStore.createIndex('tag', 'tag', { unique: false, multiEntry: true });
                 }
             }
+            if (!db.objectStoreNames.contains('uniqueValuesStore')) {
+                db.createObjectStore('uniqueValuesStore', { keyPath: 'key' });
+            }
         } catch (error) {
             console.error('Error creating object stores:', error);
         }
     };
 
-    const logFirst10Records = async (db) => {
+    const collectAndStoreUniqueValues = async (db) => {
+        const uniqueValues = {
+            category: new Set(),
+            team: new Set(),
+            tag: new Set(),
+            status: new Set(),
+        };
+
+        const promises = [];
         for (let i = 0; i < 4; i++) {
             const storeName = `issues${i}`;
-            const transaction = db.transaction([storeName], 'readonly');
-            const objectStore = transaction.objectStore(storeName);
-            const request = objectStore.openCursor();
-            const records = [];
+            promises.push(new Promise((resolve, reject) => {
+                const transaction = db.transaction([storeName], 'readonly');
+                const objectStore = transaction.objectStore(storeName);
+                const request = objectStore.openCursor();
+
+                request.onsuccess = (event) => {
+                    const cursor = event.target.result;
+                    if (cursor) {
+                        const { category, team, tag, status } = cursor.value;
+                        uniqueValues.category.add(category);
+                        uniqueValues.team.add(team);
+                        uniqueValues.status.add(status);
+                        if (Array.isArray(tag)) {
+                            tag.forEach(t => uniqueValues.tag.add(t));
+                        } else {
+                            uniqueValues.tag.add(tag);
+                        }
+                        cursor.continue();
+                    } else {
+                        resolve();
+                    }
+                };
+
+                request.onerror = (event) => {
+                    console.error(`Error collecting unique values from ${storeName}:`, event.target.error);
+                    reject(event.target.error);
+                };
+            }));
+        }
+
+        await Promise.all(promises);
+
+        const uniqueValuesData = Object.keys(uniqueValues).map(key => ({
+            key,
+            values: Array.from(uniqueValues[key]),
+        }));
+
+        return new Promise((resolve, reject) => {
+            const transaction = db.transaction(['uniqueValuesStore'], 'readwrite');
+            const objectStore = transaction.objectStore('uniqueValuesStore');
+
+            transaction.oncomplete = () => {
+                console.log('Unique values stored successfully');
+                resolve();
+            };
+
+            transaction.onerror = (event) => {
+                console.error('Error storing unique values:', event.target.error);
+                reject(event.target.error);
+            };
+
+            uniqueValuesData.forEach(item => {
+                const addRequest = objectStore.put(item);
+                addRequest.onerror = (event) => {
+                    console.error('Error adding unique value to store:', event.target.error);
+                    reject(event.target.error);
+                };
+            });
+        });
+    };
+
+    const fetchUniqueValues = (db) => {
+        return new Promise((resolve, reject) => {
+            const transaction = db.transaction(['uniqueValuesStore'], 'readonly');
+            const objectStore = transaction.objectStore('uniqueValuesStore');
+            const request = objectStore.getAll();
 
             request.onsuccess = (event) => {
-                const cursor = event.target.result;
-                if (cursor && records.length < 10) {
-                    records.push(cursor.value);
-                    cursor.continue();
-                } else {
-                    console.log(`First 10 records from ${storeName}:`, records);
-                }
+                const result = event.target.result;
+                const filters = result.map(item => ({
+                    key: item.key,
+                    label: item.key.charAt(0).toUpperCase() + item.key.slice(1),
+                    options: item.values,
+                }));
+                resolve(filters);
             };
 
             request.onerror = (event) => {
-                console.error(`Error fetching records from ${storeName}:`, event.target.error);
+                console.error('Error fetching unique values:', event.target.error);
+                reject(event.target.error);
             };
-        }
+        });
     };
 
     useEffect(() => {
         const fetchDataFromIndexedDB = async () => {
             try {
-                const issues = await queryIssuesFromIndexedDB(pageNumber, pageSize);
-                // console.log('Fetched issues:', issues);
+                const issues = await queryIssuesFromIndexedDB(pageNumber, pageSize, selectedFilters);
                 setIssues(issues);
                 setIsLoading(false);
             } catch (error) {
@@ -179,7 +251,7 @@ const IssueTracker = () => {
         };
 
         fetchDataFromIndexedDB();
-    }, [pageNumber, pageSize]);
+    }, [pageNumber, pageSize, selectedFilters]);
 
     return (
         <div>
@@ -193,9 +265,12 @@ const IssueTracker = () => {
                         onSelectFilter={onSelectFilter}
                         onRemoveFilter={onRemoveFilter}
                     />
-                    <IssueLane title={"To Do"} issues={issues.filter(issue => issue.status === 'To Do')} />
-                    <IssueLane title={"Doing"} issues={issues.filter(issue => issue.status === 'In Progress')} />
-                    <IssueLane title={"Done"} issues={issues.filter(issue => issue.status === 'Completed')} />
+                    <div className="lane-area">
+                        <IssueLane title={"To Do"} issues={issues.filter(issue => issue.status === 'To Do')} />
+                        <IssueLane title={"In Progress"} issues={issues.filter(issue => issue.status === 'In Progress')} />
+                        <IssueLane title={"Review"} issues={issues.filter(issue => issue.status === 'Review')} />
+                        <IssueLane title={"Completed"} issues={issues.filter(issue => issue.status === 'Completed')} />
+                    </div>
                 </>
             )}
         </div>

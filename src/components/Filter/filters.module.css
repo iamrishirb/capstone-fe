@@ -1,0 +1,19 @@
+.filter-area {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 20px;
+}
+
+.selected-filters {
+    display: flex;
+    flex-wrap: wrap;
+}
+
+.filter-dropdown {
+    margin-bottom: 10px;
+}
+
+.custom-dropdown-indicator {
+    font-size: 1rem;
+    color: #000;
+}

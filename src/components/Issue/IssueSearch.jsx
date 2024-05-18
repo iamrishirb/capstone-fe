@@ -1,6 +1,7 @@
 // src/components/Search.js
 
 import React, { useState, useEffect } from 'react';
+import styles from './issues.module.css';
 
 const IssueSearch = ({ issues, onSearch }) => {
     const [searchTerm, setSearchTerm] = useState('');

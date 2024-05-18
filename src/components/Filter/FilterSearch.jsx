@@ -1,6 +1,5 @@
-// src/components/Filter/FilterSearch.js
-
 import React, { useState } from 'react';
+import styles from './filters.module.css';
 
 const FilterSearch = ({ options, onSelect }) => {
     const [searchTerm, setSearchTerm] = useState('');
@@ -22,7 +21,7 @@ const FilterSearch = ({ options, onSelect }) => {
     };
 
     return (
-        <div className="filter-search">
+        <div className={styles["filter-search"]}>
             <input
                 type="text"
                 placeholder="Search..."

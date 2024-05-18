@@ -1,8 +1,7 @@
-// src/components/Filter/FilterDropdown.js
-
 import React from 'react';
 import Select from 'react-select';
 import { components } from 'react-select';
+import styles from './filters.module.css';
 
 const DropdownIndicator = (props) => {
     return (
@@ -35,7 +34,7 @@ const FilterDropdown = ({ label, options, selectedFilters, onSelectFilter }) => 
     }));
 
     return (
-        <div className="filter-dropdown">
+        <div className={styles["filter-dropdown"]}>
             <label>{label}</label>
             <Select
                 isMulti
