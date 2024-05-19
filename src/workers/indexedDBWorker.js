@@ -1,9 +1,9 @@
 self.onmessage = async function (event) {
-    const { type, dbName, storeName, jsonData } = event.data;
+    const { type, dbName, storeName, jsonData, dbVersion } = event.data;
 
     if (type === 'seedData') {
         try {
-            const dbRequest = indexedDB.open(dbName, 1);
+            const dbRequest = indexedDB.open(dbName, dbVersion);
             dbRequest.onupgradeneeded = function (event) {
                 const db = event.target.result;
                 createObjectStore(db, storeName);

@@ -7,6 +7,9 @@ import FilterArea from './Filter/FilterArea';
 import IssueLane from './Issue/IssueLane';
 import { queryIssuesFromIndexedDB } from '../utils/queryIssuesFromIndexedDB';
 
+const dbName = 'issueTrackerDB';
+const dbVersion = 9;
+
 const IssueTracker = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [issues, setIssues] = useState([]);
@@ -40,7 +43,6 @@ const IssueTracker = () => {
 
     const parseAndStoreJSONFiles = async () => {
         const workers = [];
-        const dbName = 'issueTrackerDB';
 
         const jsonDataArray = [
             filterJSONData(issues0),
@@ -49,7 +51,7 @@ const IssueTracker = () => {
             filterJSONData(issues3),
         ];
 
-        const dbRequest = indexedDB.open(dbName, 1);
+        const dbRequest = indexedDB.open(dbName, dbVersion);
 
         dbRequest.onupgradeneeded = function (event) {
             const db = event.target.result;
@@ -69,7 +71,7 @@ const IssueTracker = () => {
                 workers.push(worker);
 
                 const jsonData = jsonDataArray[i];
-                worker.postMessage({ type: 'seedData', dbName, storeName: `issues${i}`, jsonData });
+                worker.postMessage({ type: 'seedData', dbName, storeName: `issues${i}`, jsonData, dbVersion });
             }
 
             // Start the team worker
@@ -111,8 +113,7 @@ const IssueTracker = () => {
     const fetchDataFromIndexedDB = async () => {
         try {
             const allIssues = [];
-            const dbName = 'issueTrackerDB';
-            const dbRequest = indexedDB.open(dbName, 1);
+            const dbRequest = indexedDB.open(dbName, dbVersion);
             dbRequest.onsuccess = async function (event) {
                 const db = event.target.result;
                 const storeNames = ['issues0', 'issues1', 'issues2', 'issues3'];
@@ -154,7 +155,10 @@ const IssueTracker = () => {
     return (
         <div className='issue-tracker'>
             {isLoading ? (
-                <p>Loading...</p>
+                <div className='loading-screen'>
+                    <dotlottie-player src="https://lottie.host/88c4fcc9-4a9e-47c2-b73f-4b3b5a03ef38/d1daYtUo0K.lottie"
+                        background="transparent" speed="1" loop autoplay></dotlottie-player>
+                </div>
             ) : (
                 <>
                     <FilterArea

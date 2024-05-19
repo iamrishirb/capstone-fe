@@ -1,9 +1,9 @@
 self.onmessage = async function (event) {
-    const { type, dbName, storeNames } = event.data;
+    const { type, dbName, storeNames, dbVersion } = event.data;
 
     if (type === 'fetchFirstTen') {
         try {
-            const dbRequest = indexedDB.open(dbName, 1);
+            const dbRequest = indexedDB.open(dbName, dbVersion);
             dbRequest.onsuccess = async function (event) {
                 const db = event.target.result;
                 const issues = await fetchFirstTenIssues(db, storeNames);
@@ -28,7 +28,7 @@ const fetchFirstTenIssues = async (db, storeNames) => {
 
             request.onsuccess = (event) => {
                 const result = event.target.result;
-                resolve(result.slice(0, 10)); // Get the first 10 issues
+                resolve(result.slice(0, 10));
             };
             request.onerror = (event) => {
                 reject(event.target.error);
@@ -37,5 +37,5 @@ const fetchFirstTenIssues = async (db, storeNames) => {
     });
 
     const issues = await Promise.all(promises);
-    return issues.flat(); // Flatten the array of arrays
+    return issues.flat();
 };
