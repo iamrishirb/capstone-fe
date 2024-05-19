@@ -45,7 +45,7 @@ const IssueLane = ({ title, issues }) => {
             <div className={styles['typeahead-container']}>
                 <input
                     type="text"
-                    placeholder="Search issues..."
+                    placeholder="🔍  Search issues..."
                     value={searchQuery}
                     onChange={handleSearch}
                     className={styles['search-bar']}

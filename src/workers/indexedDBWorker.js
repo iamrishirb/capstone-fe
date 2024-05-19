@@ -24,64 +24,31 @@ self.onmessage = async function (event) {
     }
 };
 
-const createObjectStore = (db, storeName) => {
+function createObjectStore(db, storeName) {
     if (!db.objectStoreNames.contains(storeName)) {
-        const objectStore = db.createObjectStore(storeName, { keyPath: 'id' });
-        objectStore.createIndex('title', 'title', { unique: false });
-        objectStore.createIndex('status', 'status', { unique: false });
-        objectStore.createIndex('category', 'category', { unique: false });
-        objectStore.createIndex('priority', 'priority', { unique: false });
-        objectStore.createIndex('team', 'team', { unique: false });
-        objectStore.createIndex('tag', 'tag', { unique: false, multiEntry: true });
+        db.createObjectStore(storeName, { keyPath: 'id' });
     }
-};
+}
 
-const seedDataIfNeeded = async (db, jsonData, storeName) => {
+async function seedDataIfNeeded(db, jsonData, storeName) {
     return new Promise((resolve, reject) => {
-        const transaction = db.transaction([storeName], 'readonly');
-        const objectStore = transaction.objectStore(storeName);
-        const countRequest = objectStore.count();
-
-        countRequest.onsuccess = async () => {
-            if (countRequest.result === 0) {
-                try {
-                    await storeData(db, jsonData, storeName);
-                    resolve();
-                } catch (error) {
-                    reject(error);
-                }
-            } else {
-                resolve();
-            }
-        };
-
-        countRequest.onerror = (event) => {
-            reject(event.target.error);
-        };
-    });
-};
-
-const storeData = (db, jsonData, storeName) => {
-    return new Promise((resolve, reject) => {
-        const transaction = db.transaction([storeName], 'readwrite');
+        const transaction = db.transaction(storeName, 'readwrite');
         const objectStore = transaction.objectStore(storeName);
 
-        transaction.oncomplete = () => {
+        jsonData.forEach((issue) => {
+            const request = objectStore.put(issue);
+            request.onerror = function (event) {
+                console.error('Error adding data:', event.target.error);
+            };
+        });
+
+        transaction.oncomplete = function () {
             resolve();
         };
 
-        transaction.onerror = (event) => {
+        transaction.onerror = function (event) {
+            console.error('Error during transaction:', event.target.error);
             reject(event.target.error);
         };
-
-        jsonData.forEach((issue) => {
-            const addRequest = objectStore.add(issue);
-            addRequest.onsuccess = () => {
-                self.postMessage({ status: 'progress', storeName, issue });
-            };
-            addRequest.onerror = (event) => {
-                reject(event.target.error);
-            };
-        });
     });
-};
+}

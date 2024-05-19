@@ -13,6 +13,7 @@ const IssueTracker = () => {
     const [filters, setFilters] = useState([]);
     const [selectedFilters, setSelectedFilters] = useState({});
     const [workersCompleted, setWorkersCompleted] = useState(0);
+    const [teams, setTeams] = useState({});
 
     const onSelectFilter = (key, selected) => {
         setSelectedFilters((prevFilters) => ({
@@ -70,6 +71,11 @@ const IssueTracker = () => {
                 const jsonData = jsonDataArray[i];
                 worker.postMessage({ type: 'seedData', dbName, storeName: `issues${i}`, jsonData });
             }
+
+            // Start the team worker
+            const teamWorker = new Worker(new URL('../workers/teamWorker.js', import.meta.url));
+            teamWorker.onmessage = handleTeamWorkerMessage;
+            teamWorker.postMessage({ jsonDataArray });
         };
 
         dbRequest.onerror = function (event) {
@@ -87,6 +93,12 @@ const IssueTracker = () => {
         } else if (status === 'error') {
             console.error(`Error in worker for ${storeName}:`, error);
         }
+    };
+
+    const handleTeamWorkerMessage = (event) => {
+        const { teams } = event.data;
+        setTeams(teams);
+        console.log('Teams data:', teams);
     };
 
     useEffect(() => {
