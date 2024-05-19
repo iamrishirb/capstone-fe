@@ -1,32 +1,56 @@
 import React, { useState, useEffect } from 'react';
 import InfiniteScroll from 'react-infinite-scroller';
 import styles from './issues.module.css';
-import IssueCard from './IssueCard'
+import IssueCard from './IssueCard';
 
 const IssueLane = ({ title, issues }) => {
     const [displayedIssues, setDisplayedIssues] = useState([]);
+    const [filteredIssues, setFilteredIssues] = useState([]);
     const [hasMore, setHasMore] = useState(true);
+    const [searchQuery, setSearchQuery] = useState('');
     const itemsPerPage = 20;
 
     useEffect(() => {
+        setFilteredIssues(issues);
         setDisplayedIssues(issues.slice(0, itemsPerPage));
+        setHasMore(issues.length > itemsPerPage);
     }, [issues]);
 
     const loadMore = (page) => {
-        const newIssues = issues.slice(page * itemsPerPage, (page + 1) * itemsPerPage);
+        const startIndex = page * itemsPerPage;
+        const newIssues = filteredIssues.slice(startIndex, startIndex + itemsPerPage);
         setDisplayedIssues((prevIssues) => [...prevIssues, ...newIssues]);
 
-        if (displayedIssues.length + newIssues.length >= issues.length) {
+        if (startIndex + itemsPerPage >= filteredIssues.length) {
             setHasMore(false);
         }
     };
 
-    console.log("issues in ", title);
-    console.log(issues)
+    const handleSearch = (event) => {
+        const query = event.target.value.toLowerCase();
+        setSearchQuery(query);
+        const searchResults = issues.filter(issue =>
+            issue.title.toLowerCase().includes(query) ||
+            issue.team.toLowerCase().includes(query) ||
+            issue.tag.some(tag => tag.toLowerCase().includes(query))
+        );
+        setFilteredIssues(searchResults);
+        setDisplayedIssues(searchResults.slice(0, itemsPerPage));
+        setHasMore(searchResults.length > itemsPerPage);
+    };
 
     return (
         <div className={styles['issue-lane']}>
             <h2 className={styles['lane-header']}>{title}</h2>
+            <div className={styles['typeahead-container']}>
+                <input
+                    type="text"
+                    placeholder="Search issues..."
+                    value={searchQuery}
+                    onChange={handleSearch}
+                    className={styles['search-bar']}
+                />
+            </div>
             <InfiniteScroll
                 pageStart={0}
                 loadMore={loadMore}
@@ -35,10 +59,6 @@ const IssueLane = ({ title, issues }) => {
             >
                 <div className={styles["issue-list"]}>
                     {displayedIssues.map((issue) => (
-                        // <div key={issue.id} className={styles.issue}>
-                        //     <h3>{issue.title}</h3>
-                        //     <p>{issue.description}</p>
-                        // </div>
                         <IssueCard key={issue.id} issue={issue} />
                     ))}
                 </div>
