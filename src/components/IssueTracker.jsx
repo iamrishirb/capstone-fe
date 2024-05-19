@@ -5,10 +5,9 @@ import issues2 from '../data/issues-2.json';
 import issues3 from '../data/issues-3.json';
 import FilterArea from './Filter/FilterArea';
 import IssueLane from './Issue/IssueLane';
-import { queryIssuesFromIndexedDB } from '../utils/queryIssuesFromIndexedDB';
 
 const dbName = 'issueTrackerDB';
-const dbVersion = 9;
+const dbVersion = 10; // Ensure this matches the teamWorker's version
 
 const IssueTracker = () => {
     const [isLoading, setIsLoading] = useState(true);
@@ -61,6 +60,9 @@ const IssueTracker = () => {
                     db.createObjectStore(storeName, { keyPath: 'id' });
                 }
             }
+            if (!db.objectStoreNames.contains('teams')) {
+                db.createObjectStore('teams', { keyPath: 'id' });
+            }
         };
 
         dbRequest.onsuccess = function (event) {
@@ -99,8 +101,53 @@ const IssueTracker = () => {
 
     const handleTeamWorkerMessage = (event) => {
         const { teams } = event.data;
-        setTeams(teams);
-        console.log('Teams data:', teams);
+
+        if (teams && typeof teams === 'object' && !Array.isArray(teams)) {
+            const teamsArray = Object.entries(teams).map(([teamName, teamData]) => ({
+                id: teamName,
+                data: teamData,
+            }));
+            setTeams(teamsArray);
+            console.log('Teams data:', teamsArray);
+
+            const seedTeamsData = async (db) => {
+                const transaction = db.transaction('teams', 'readwrite');
+                const objectStore = transaction.objectStore('teams');
+
+                teamsArray.forEach(team => {
+                    objectStore.put(team);
+                });
+
+                transaction.oncomplete = function () {
+                    console.log('Teams data successfully seeded into IndexedDB');
+                };
+
+                transaction.onerror = function (event) {
+                    console.error('Error seeding teams data into IndexedDB:', event.target.error);
+                };
+            };
+
+            const initializeTeamsStore = async () => {
+                try {
+                    const dbRequest = indexedDB.open(dbName, dbVersion);
+
+                    dbRequest.onsuccess = async function (event) {
+                        const db = event.target.result;
+                        await seedTeamsData(db);
+                    };
+
+                    dbRequest.onerror = function (event) {
+                        console.error('Error opening IndexedDB:', event.target.error);
+                    };
+                } catch (error) {
+                    console.error('Error initializing IndexedDB:', error);
+                }
+            };
+
+            initializeTeamsStore();
+        } else {
+            console.error('Received teams data is not an object:', teams);
+        }
     };
 
     useEffect(() => {
