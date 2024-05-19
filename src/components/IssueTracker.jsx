@@ -3,16 +3,14 @@ import issues0 from '../data/issues-0.json';
 import issues1 from '../data/issues-1.json';
 import issues2 from '../data/issues-2.json';
 import issues3 from '../data/issues-3.json';
-import { queryIssuesFromIndexedDB } from '../utils/queryIssuesFromIndexedDB';
 import FilterArea from './Filter/FilterArea';
 import IssueLane from './Issue/IssueLane';
+import { queryIssuesFromIndexedDB } from '../utils/queryIssuesFromIndexedDB';
 
 const IssueTracker = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [issues, setIssues] = useState([]);
     const [filters, setFilters] = useState([]);
-    const [pageNumber, setPageNumber] = useState(1);
-    const [pageSize, setPageSize] = useState(20);
     const [selectedFilters, setSelectedFilters] = useState({});
     const [workersCompleted, setWorkersCompleted] = useState(0);
 
@@ -60,9 +58,6 @@ const IssueTracker = () => {
                     db.createObjectStore(storeName, { keyPath: 'id' });
                 }
             }
-            if (!db.objectStoreNames.contains('uniqueValuesStore')) {
-                db.createObjectStore('uniqueValuesStore', { keyPath: 'key' });
-            }
         };
 
         dbRequest.onsuccess = function (event) {
@@ -96,67 +91,53 @@ const IssueTracker = () => {
 
     useEffect(() => {
         if (workersCompleted === 4) {
-            collectAndStoreUniqueValues();
             setIsLoading(false);
-            fetchAndLogFirstTenIssues();
+            fetchDataFromIndexedDB();
         }
     }, [workersCompleted]);
 
-    const collectAndStoreUniqueValues = async () => {
-        const dbRequest = indexedDB.open('issueTrackerDB', 1);
-        dbRequest.onsuccess = async function (event) {
-            const db = event.target.result;
-            const uniqueValues = await fetchUniqueValues(db);
-            setFilters(uniqueValues);
-        };
-        dbRequest.onerror = function (event) {
-            console.error('Error opening IndexedDB for unique values:', event.target.error);
-        };
-    };
+    const fetchDataFromIndexedDB = async () => {
+        try {
+            const allIssues = [];
+            const dbName = 'issueTrackerDB';
+            const dbRequest = indexedDB.open(dbName, 1);
+            dbRequest.onsuccess = async function (event) {
+                const db = event.target.result;
+                const storeNames = ['issues0', 'issues1', 'issues2', 'issues3'];
+                for (const storeName of storeNames) {
+                    const transaction = db.transaction(storeName, 'readonly');
+                    const objectStore = transaction.objectStore(storeName);
+                    const request = objectStore.getAll();
 
-    const fetchUniqueValues = async (db) => {
-        const uniqueValuesStore = db.transaction('uniqueValuesStore', 'readonly').objectStore('uniqueValuesStore');
-        const request = uniqueValuesStore.getAll();
+                    request.onsuccess = (event) => {
+                        allIssues.push(...event.target.result);
+                    };
 
-        return new Promise((resolve, reject) => {
-            request.onsuccess = (event) => {
-                const result = event.target.result;
-                const filters = result.map((item) => ({
-                    key: item.key,
-                    label: item.key.charAt(0).toUpperCase() + item.key.slice(1),
-                    options: item.values,
-                }));
-                resolve(filters);
-            };
-            request.onerror = (event) => {
-                reject(event.target.error);
-            };
-        });
-    };
+                    request.onerror = (event) => {
+                        console.error('Error fetching data from IndexedDB:', event.target.error);
+                    };
 
-    const fetchAndLogFirstTenIssues = () => {
-        const fetchWorker = new Worker(new URL('../workers/fetchIssuesWorker.js', import.meta.url));
-        fetchWorker.onmessage = (event) => {
-            const { issues } = event.data;
-            console.log('First 10 issues from each store:', issues);
-        };
-        fetchWorker.postMessage({ type: 'fetchFirstTen', dbName: 'issueTrackerDB', storeNames: ['issues0', 'issues1', 'issues2', 'issues3'] });
-    };
-
-    useEffect(() => {
-        const fetchDataFromIndexedDB = async () => {
-            try {
-                const issues = await queryIssuesFromIndexedDB(pageNumber, pageSize, selectedFilters);
-                setIssues(issues);
+                    await transaction.complete;
+                }
+                setIssues(allIssues);
                 setIsLoading(false);
-            } catch (error) {
-                console.error('Error fetching data from IndexedDB:', error);
-                setIsLoading(false);
-            }
-        };
+            };
 
-        fetchDataFromIndexedDB();
-    }, [pageNumber, pageSize, selectedFilters]);
+            dbRequest.onerror = function (event) {
+                console.error('Error opening IndexedDB:', event.target.error);
+                setIsLoading(false);
+            };
+        } catch (error) {
+            console.error('Error fetching data from IndexedDB:', error);
+            setIsLoading(false);
+        }
+    };
+
+    const filterIssuesByStatus = (status) => {
+        return issues.filter(issue => issue.status === status);
+    };
+
+    console.log('All issues:', issues);
 
     return (
         <div className='issue-tracker'>
@@ -170,11 +151,11 @@ const IssueTracker = () => {
                         onSelectFilter={onSelectFilter}
                         onRemoveFilter={onRemoveFilter}
                     />
-                    <div className="lane-area">
-                        <IssueLane title={"To Do"} issues={issues.filter((issue) => issue.status === 'To Do')} />
-                        <IssueLane title={"In Progress"} issues={issues.filter((issue) => issue.status === 'In Progress')} />
-                        <IssueLane title={"Review"} issues={issues.filter((issue) => issue.status === 'Review')} />
-                        <IssueLane title={"Completed"} issues={issues.filter((issue) => issue.status === 'Completed')} />
+                    <div className='lane-area'>
+                        <IssueLane title='To-Do' issues={filterIssuesByStatus('To Do')} />
+                        <IssueLane title='In Progress' issues={filterIssuesByStatus('In Progress')} />
+                        <IssueLane title='Review' issues={filterIssuesByStatus('Review')} />
+                        <IssueLane title='Completed' issues={filterIssuesByStatus('Completed')} />
                     </div>
                 </>
             )}
