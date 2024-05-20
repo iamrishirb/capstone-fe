@@ -260,6 +260,22 @@ const IssueTracker = () => {
         });
     };
 
+    const handleResetFilters = () => {
+        setSelectedFilters({});
+    };
+
+    useEffect(() => {
+        const isAnyFilterEmpty = Object.keys(selectedFilters).some(
+            key => selectedFilters[key].length === 0
+        );
+        const isFiltersEmpty = Object.keys(selectedFilters).length === 0;
+
+        if (isAnyFilterEmpty || isFiltersEmpty) {
+            setIssues(issues);
+        }
+    }, [selectedFilters]);
+
+
     const filteredIssues = applyFilters() || issues;
 
     return (
@@ -271,11 +287,13 @@ const IssueTracker = () => {
                 </div>
             ) : (
                 <>
+                    <h1 style={{ textAlign: "center", marginTop: "60px" }}>Issue Tracker</h1>
                     <FilterArea
                         filters={filters}
                         selectedFilters={selectedFilters}
                         onSelectFilter={onSelectFilter}
                         onRemoveFilter={onRemoveFilter}
+                        onResetFilters={handleResetFilters}
                     />
                     <div className='lane-area'>
                         <IssueLane title='To-Do' issues={filterIssuesByStatus('To Do', filteredIssues)} />

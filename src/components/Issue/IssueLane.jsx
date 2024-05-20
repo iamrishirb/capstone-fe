@@ -21,9 +21,27 @@ const IssueLane = ({ title, issues }) => {
         setHasMore(filteredIssues.length > itemsPerPage);
     }, [filteredIssues]);
 
+    // const loadMore = (page) => {
+    //     const startIndex = page * itemsPerPage;
+    //     const endIndex = startIndex + itemsPerPage;
+    //     const newIssues = filteredIssues.slice(startIndex, endIndex);
+    //     setDisplayedIssues((prevIssues) => [...prevIssues, ...newIssues]);
+
+    //     if (endIndex >= filteredIssues.length) {
+    //         setHasMore(false);
+    //     }
+    // };
+
     const loadMore = (page) => {
         const startIndex = page * itemsPerPage;
         const endIndex = startIndex + itemsPerPage;
+
+        if (startIndex >= filteredIssues.length) {
+            // All issues have been loaded, no need to load more
+            setHasMore(false);
+            return;
+        }
+
         const newIssues = filteredIssues.slice(startIndex, endIndex);
         setDisplayedIssues((prevIssues) => [...prevIssues, ...newIssues]);
 

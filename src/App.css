@@ -11,7 +11,7 @@
 }
 
 .issue-tracker {
-  height: 90vh;
+  height: calc(100vh - 300px);
   max-width: 1440px;
   margin: 0px auto;
   padding: 0px 60px;

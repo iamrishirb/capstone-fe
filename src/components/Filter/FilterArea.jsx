@@ -7,6 +7,7 @@ const FilterArea = ({
     selectedFilters,
     onSelectFilter,
     onRemoveFilter,
+    onResetFilters,
 }) => {
     const [teams, setTeams] = useState([]);
     const [tags, setTags] = useState([]);
@@ -69,11 +70,16 @@ const FilterArea = ({
                 ))}
             </div>
             <div className={styles["selected-filters"]}>
-                {Object.keys(selectedFilters).map((key) => (
-                    selectedFilters[key].map((value, index) => (
-                        <FilterChip key={`${key}-${index}`} filter={value} onRemove={() => onRemoveFilter(key, value)} />
-                    ))
-                ))}
+                <div className={styles["chip-group"]}>
+                    {Object.keys(selectedFilters).map((key) => (
+                        selectedFilters[key].map((value, index) => (
+                            <FilterChip key={`${key}-${index}`} filter={value} onRemove={() => onRemoveFilter(key, value)} />
+                        ))
+                    ))}
+                </div>
+                {Object.keys(selectedFilters).length > 0 && (
+                    <button className={styles["reset-filters-button"]} onClick={onResetFilters}>Reset Filters</button>
+                )}
             </div>
         </div>
     );
