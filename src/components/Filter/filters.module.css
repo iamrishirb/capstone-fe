@@ -1,7 +1,10 @@
 .filter-area {
     display: flex;
     flex-direction: column;
-    margin-bottom: 20px;
+    margin: 40px 15px 20px 15px;
+    background: #f4f4f4;
+    border: 1px solid #d9d9d9;
+    border-radius: 12px;
 }
 
 .selected-filters {
@@ -11,9 +14,28 @@
 
 .filter-dropdown {
     margin-bottom: 10px;
+    text-align: left;
+}
+
+.filter-dropdown label {
+    margin-bottom: 10px;
+    display: block;
+    font-size: 14px;
 }
 
 .custom-dropdown-indicator {
     font-size: 1rem;
     color: #000;
+}
+
+.filter-group {
+    display: flex;
+    align-items: start;
+    justify-content: space-between;
+    gap: 30px;
+    padding: 20px;
+}
+
+.filter-column {
+    flex: 1;
 }
