@@ -90,7 +90,7 @@ const IssueTracker = () => {
             }
 
             setTags(allTags);
-            // seedTagsData(db, allTags);
+            seedTagsData(db, allTags);
 
             // Start the team worker
             const teamWorker = new Worker(new URL('../workers/teamWorker.js', import.meta.url));
@@ -124,26 +124,26 @@ const IssueTracker = () => {
         });
     };
 
-    // const seedTagsData = async (db, tags) => {
-    //     return new Promise((resolve, reject) => {
-    //         const transaction = db.transaction('tags', 'readwrite');
-    //         const objectStore = transaction.objectStore('tags');
+    const seedTagsData = async (db, tags) => {
+        return new Promise((resolve, reject) => {
+            const transaction = db.transaction('tags', 'readwrite');
+            const objectStore = transaction.objectStore('tags');
 
-    //         Object.entries(tags).forEach(([tagName, tagData]) => {
-    //             objectStore.put({ id: tagName, data: tagData });
-    //         });
+            Object.entries(tags).forEach(([tagName, tagData]) => {
+                objectStore.put({ id: tagName, data: tagData });
+            });
 
-    //         transaction.oncomplete = () => {
-    //             console.log('Tags data successfully seeded into IndexedDB');
-    //             resolve();
-    //         };
+            transaction.oncomplete = () => {
+                console.log('Tags data successfully seeded into IndexedDB');
+                resolve();
+            };
 
-    //         transaction.onerror = (event) => {
-    //             console.error('Error seeding tags data into IndexedDB:', event.target.error);
-    //             reject(event.target.error);
-    //         };
-    //     });
-    // };
+            transaction.onerror = (event) => {
+                console.error('Error seeding tags data into IndexedDB:', event.target.error);
+                reject(event.target.error);
+            };
+        });
+    };
 
     const handleTeamWorkerMessage = (event) => {
         const { teams } = event.data;

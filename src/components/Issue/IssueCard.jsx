@@ -45,8 +45,8 @@ const IssueCard = ({ issue }) => {
                     </p>
                 </div>
                 {issue.tag && issue.tag.length > 0 && (
-                    <div className={styles.tags}>
-                        <img width="20" height="20" src="https://img.icons8.com/fluency-systems-filled/48/price-tag.png" alt="price-tag" />
+                    <div className={styles.tags} style={{ display: "flex", alignItems: "center" }}>
+                        <img width="16" height="16" src="https://img.icons8.com/fluency-systems-filled/48/price-tag.png" alt="price-tag" />
                         {issue.tag.map((tag, index) => (
                             <span key={index} className={styles.tagPill}>{tag}</span>
                         ))}
