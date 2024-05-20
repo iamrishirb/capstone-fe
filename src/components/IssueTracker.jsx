@@ -25,10 +25,11 @@ const IssueTracker = () => {
         }));
     };
 
-    const onRemoveFilter = (key) => {
+    const onRemoveFilter = (key, value) => {
         setSelectedFilters((prevFilters) => {
             const updatedFilters = { ...prevFilters };
-            delete updatedFilters[key];
+            updatedFilters[key] = updatedFilters[key].filter(item => item !== value);
+            if (updatedFilters[key].length === 0) delete updatedFilters[key];
             return updatedFilters;
         });
     };
@@ -112,7 +113,6 @@ const IssueTracker = () => {
             });
 
             transaction.oncomplete = () => {
-                // console.log(`Data successfully seeded into ${storeName}`);
                 setWorkersCompleted(prevCount => prevCount + 1);
                 resolve();
             };
@@ -162,10 +162,6 @@ const IssueTracker = () => {
                 teamsArray.forEach(team => {
                     objectStore.put(team);
                 });
-
-                // transaction.oncomplete = function () {
-                //     console.log('Teams data successfully seeded into IndexedDB');
-                // };
 
                 transaction.onerror = function (event) {
                     console.error('Error seeding teams data into IndexedDB:', event.target.error);
@@ -238,10 +234,22 @@ const IssueTracker = () => {
         }
     };
 
-    const filterIssuesByStatus = (status) => {
-        return issues.filter(issue => issue.status === status);
+    const filterIssuesByStatus = (status, issuesToFilter) => {
+        return issuesToFilter.filter(issue => issue.status === status);
+    };
+    const applyFilters = () => {
+
+        return issues.filter(issue => {
+            return Object.keys(selectedFilters).every(filterKey => {
+                if (filterKey === 'tag') {
+                    return selectedFilters[filterKey].every(tag => issue.tag.includes(tag));
+                }
+                return selectedFilters[filterKey].includes(issue[filterKey]);
+            });
+        });
     };
 
+    const filteredIssues = applyFilters() || issues;
 
     return (
         <div className='issue-tracker'>
@@ -259,10 +267,10 @@ const IssueTracker = () => {
                         onRemoveFilter={onRemoveFilter}
                     />
                     <div className='lane-area'>
-                        <IssueLane title='To-Do' issues={filterIssuesByStatus('To Do')} />
-                        <IssueLane title='In Progress' issues={filterIssuesByStatus('In Progress')} />
-                        <IssueLane title='Review' issues={filterIssuesByStatus('Review')} />
-                        <IssueLane title='Completed' issues={filterIssuesByStatus('Completed')} />
+                        <IssueLane title='To-Do' issues={filterIssuesByStatus('To Do', filteredIssues)} />
+                        <IssueLane title='In Progress' issues={filterIssuesByStatus('In Progress', filteredIssues)} />
+                        <IssueLane title='Review' issues={filterIssuesByStatus('Review', filteredIssues)} />
+                        <IssueLane title='Completed' issues={filterIssuesByStatus('Completed', filteredIssues)} />
                     </div>
                 </>
             )}

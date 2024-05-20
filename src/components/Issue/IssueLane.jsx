@@ -44,6 +44,8 @@ const IssueLane = ({ title, issues }) => {
         setFilteredIssues(searchResults);
     };
 
+    console.log(issues);
+
     return (
         <div className={styles['issue-lane']}>
             <h2 className={styles['lane-header']}>{title}</h2>

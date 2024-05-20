@@ -4,7 +4,6 @@ import FilterChip from './FilterChip';
 import styles from './filters.module.css';
 
 const FilterArea = ({
-    filters,
     selectedFilters,
     onSelectFilter,
     onRemoveFilter,
@@ -13,14 +12,12 @@ const FilterArea = ({
     const [tags, setTags] = useState([]);
 
     useEffect(() => {
-        // Fetch teams and tags from IndexedDB
         const fetchTeamsAndTags = async () => {
             const dbRequest = indexedDB.open('issueTrackerDB', 11);
 
             dbRequest.onsuccess = async (event) => {
                 const db = event.target.result;
 
-                // Fetch teams
                 const teamsTransaction = db.transaction('teams', 'readonly');
                 const teamsStore = teamsTransaction.objectStore('teams');
                 const teamsRequest = teamsStore.getAll();
@@ -31,7 +28,6 @@ const FilterArea = ({
                     console.error('Error fetching teams from IndexedDB:', event.target.error);
                 };
 
-                // Fetch tags
                 const tagsTransaction = db.transaction('tags', 'readonly');
                 const tagsStore = tagsTransaction.objectStore('tags');
                 const tagsRequest = tagsStore.getAll();
