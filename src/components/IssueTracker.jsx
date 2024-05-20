@@ -32,14 +32,24 @@ const IssueTracker = () => {
             if (updatedFilters[key].length === 0) delete updatedFilters[key];
             return updatedFilters;
         });
+
+        // After removing the filter, update the filtered issues
+        const newFilteredIssues = applyFilters();
+        setIssues(newFilteredIssues);
     };
+
+    const updateFilteredIssues = () => {
+        const newFilteredIssues = applyFilters();
+        setFilteredIssues(newFilteredIssues);
+    };
+
 
     useEffect(() => {
         parseAndStoreJSONFiles();
     }, []);
 
     const filterJSONData = (data) => {
-        return data.slice(0, 200);
+        return data.slice(0, 1000);
     };
 
     const parseAndStoreJSONFiles = async () => {
@@ -237,6 +247,7 @@ const IssueTracker = () => {
     const filterIssuesByStatus = (status, issuesToFilter) => {
         return issuesToFilter.filter(issue => issue.status === status);
     };
+
     const applyFilters = () => {
 
         return issues.filter(issue => {

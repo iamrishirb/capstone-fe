@@ -23,10 +23,11 @@ const IssueLane = ({ title, issues }) => {
 
     const loadMore = (page) => {
         const startIndex = page * itemsPerPage;
-        const newIssues = filteredIssues.slice(startIndex, startIndex + itemsPerPage);
+        const endIndex = startIndex + itemsPerPage;
+        const newIssues = filteredIssues.slice(startIndex, endIndex);
         setDisplayedIssues((prevIssues) => [...prevIssues, ...newIssues]);
 
-        if (startIndex + itemsPerPage >= filteredIssues.length) {
+        if (endIndex >= filteredIssues.length) {
             setHasMore(false);
         }
     };
@@ -44,7 +45,6 @@ const IssueLane = ({ title, issues }) => {
         setFilteredIssues(searchResults);
     };
 
-    console.log(issues);
 
     return (
         <div className={styles['issue-lane']}>
