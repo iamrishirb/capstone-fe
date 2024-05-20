@@ -7,7 +7,7 @@ import FilterArea from './Filter/FilterArea';
 import IssueLane from './Issue/IssueLane';
 
 const dbName = 'issueTrackerDB';
-const dbVersion = 10; // Ensure this matches the teamWorker's version
+const dbVersion = 11;
 
 const IssueTracker = () => {
     const [isLoading, setIsLoading] = useState(true);
@@ -16,6 +16,7 @@ const IssueTracker = () => {
     const [selectedFilters, setSelectedFilters] = useState({});
     const [workersCompleted, setWorkersCompleted] = useState(0);
     const [teams, setTeams] = useState({});
+    const [tags, setTags] = useState({});
 
     const onSelectFilter = (key, selected) => {
         setSelectedFilters((prevFilters) => ({
@@ -41,8 +42,6 @@ const IssueTracker = () => {
     };
 
     const parseAndStoreJSONFiles = async () => {
-        const workers = [];
-
         const jsonDataArray = [
             filterJSONData(issues0),
             filterJSONData(issues1),
@@ -63,18 +62,35 @@ const IssueTracker = () => {
             if (!db.objectStoreNames.contains('teams')) {
                 db.createObjectStore('teams', { keyPath: 'id' });
             }
+            if (!db.objectStoreNames.contains('tags')) {
+                db.createObjectStore('tags', { keyPath: 'id' });
+            }
         };
 
         dbRequest.onsuccess = function (event) {
             const db = event.target.result;
-            for (let i = 0; i < jsonDataArray.length; i++) {
-                const worker = new Worker(new URL('../workers/indexedDBWorker.js', import.meta.url));
-                worker.onmessage = handleWorkerMessage;
-                workers.push(worker);
+            const allTags = {};
 
+            for (let i = 0; i < jsonDataArray.length; i++) {
                 const jsonData = jsonDataArray[i];
-                worker.postMessage({ type: 'seedData', dbName, storeName: `issues${i}`, jsonData, dbVersion });
+                const storeName = `issues${i}`;
+                seedData(db, storeName, jsonData);
+
+                // Collect tags
+                jsonData.forEach(issue => {
+                    const issueTags = issue.tag || [];
+                    issueTags.forEach(tag => {
+                        if (allTags[tag]) {
+                            allTags[tag].push(issue.id);
+                        } else {
+                            allTags[tag] = [issue.id];
+                        }
+                    });
+                });
             }
+
+            setTags(allTags);
+            // seedTagsData(db, allTags);
 
             // Start the team worker
             const teamWorker = new Worker(new URL('../workers/teamWorker.js', import.meta.url));
@@ -87,17 +103,47 @@ const IssueTracker = () => {
         };
     };
 
-    const handleWorkerMessage = (event) => {
-        const { status, storeName, issue, error } = event.data;
-        if (status === 'progress') {
-            setIssues((prevIssues) => [...prevIssues, issue]);
-        } else if (status === 'completed') {
-            console.log(`Data seeding completed for ${storeName}`);
-            setWorkersCompleted((prevCount) => prevCount + 1);
-        } else if (status === 'error') {
-            console.error(`Error in worker for ${storeName}:`, error);
-        }
+    const seedData = async (db, storeName, jsonData) => {
+        return new Promise((resolve, reject) => {
+            const transaction = db.transaction(storeName, 'readwrite');
+            const objectStore = transaction.objectStore(storeName);
+            jsonData.forEach(item => {
+                objectStore.put(item);
+            });
+
+            transaction.oncomplete = () => {
+                // console.log(`Data successfully seeded into ${storeName}`);
+                setWorkersCompleted(prevCount => prevCount + 1);
+                resolve();
+            };
+
+            transaction.onerror = (event) => {
+                console.error(`Error seeding data into ${storeName}:`, event.target.error);
+                reject(event.target.error);
+            };
+        });
     };
+
+    // const seedTagsData = async (db, tags) => {
+    //     return new Promise((resolve, reject) => {
+    //         const transaction = db.transaction('tags', 'readwrite');
+    //         const objectStore = transaction.objectStore('tags');
+
+    //         Object.entries(tags).forEach(([tagName, tagData]) => {
+    //             objectStore.put({ id: tagName, data: tagData });
+    //         });
+
+    //         transaction.oncomplete = () => {
+    //             console.log('Tags data successfully seeded into IndexedDB');
+    //             resolve();
+    //         };
+
+    //         transaction.onerror = (event) => {
+    //             console.error('Error seeding tags data into IndexedDB:', event.target.error);
+    //             reject(event.target.error);
+    //         };
+    //     });
+    // };
 
     const handleTeamWorkerMessage = (event) => {
         const { teams } = event.data;
@@ -108,7 +154,6 @@ const IssueTracker = () => {
                 data: teamData,
             }));
             setTeams(teamsArray);
-            console.log('Teams data:', teamsArray);
 
             const seedTeamsData = async (db) => {
                 const transaction = db.transaction('teams', 'readwrite');
@@ -118,9 +163,9 @@ const IssueTracker = () => {
                     objectStore.put(team);
                 });
 
-                transaction.oncomplete = function () {
-                    console.log('Teams data successfully seeded into IndexedDB');
-                };
+                // transaction.oncomplete = function () {
+                //     console.log('Teams data successfully seeded into IndexedDB');
+                // };
 
                 transaction.onerror = function (event) {
                     console.error('Error seeding teams data into IndexedDB:', event.target.error);
@@ -197,7 +242,6 @@ const IssueTracker = () => {
         return issues.filter(issue => issue.status === status);
     };
 
-    console.log('All issues:', issues);
 
     return (
         <div className='issue-tracker'>

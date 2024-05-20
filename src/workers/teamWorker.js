@@ -15,7 +15,7 @@ self.onmessage = async function (event) {
     });
 
     const dbName = 'issueTrackerDB';
-    const dbVersion = 10; // Increment version to trigger onupgradeneeded
+    const dbVersion = 11;
 
     // Open or upgrade the database
     const openDb = (version) => {
