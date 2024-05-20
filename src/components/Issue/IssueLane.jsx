@@ -16,6 +16,11 @@ const IssueLane = ({ title, issues }) => {
         setHasMore(issues.length > itemsPerPage);
     }, [issues]);
 
+    useEffect(() => {
+        setDisplayedIssues(filteredIssues.slice(0, itemsPerPage));
+        setHasMore(filteredIssues.length > itemsPerPage);
+    }, [filteredIssues]);
+
     const loadMore = (page) => {
         const startIndex = page * itemsPerPage;
         const newIssues = filteredIssues.slice(startIndex, startIndex + itemsPerPage);
@@ -29,14 +34,14 @@ const IssueLane = ({ title, issues }) => {
     const handleSearch = (event) => {
         const query = event.target.value.toLowerCase();
         setSearchQuery(query);
+
         const searchResults = issues.filter(issue =>
             issue.title.toLowerCase().includes(query) ||
             issue.team.toLowerCase().includes(query) ||
             issue.tag.some(tag => tag.toLowerCase().includes(query))
         );
+
         setFilteredIssues(searchResults);
-        setDisplayedIssues(searchResults.slice(0, itemsPerPage));
-        setHasMore(searchResults.length > itemsPerPage);
     };
 
     return (
@@ -55,7 +60,7 @@ const IssueLane = ({ title, issues }) => {
                 pageStart={0}
                 loadMore={loadMore}
                 hasMore={hasMore}
-                loader={<div className={"loader"} key={0}>Loading ...</div>}
+                loader={<div className="loader" key={0}>Loading ...</div>}
             >
                 <div className={styles["issue-list"]}>
                     {displayedIssues.map((issue) => (
